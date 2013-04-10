@@ -1,0 +1,15 @@
+{
+	"name":        "adam-lynch/icon-styles-generator",
+	"description": "blah blah",
+	"keywords":    ["icons", "styles", "sprites", "preprocessor", "less", "sass", "stylus", "css", "image", "data-uri"],
+	"homepage":    "http://github.com/adam-lynch/icon-styles-generator",
+	"type":        "library",
+	"license":     "MIT",
+	"authors":     [
+		{
+			"name":     "Adam Lynch",
+			"email":    "contact@adamlynch.ie",
+			"homepage": "http://adamlynch.ie"
+		}
+	]
+}

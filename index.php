@@ -47,6 +47,7 @@
 	$files               = scandir( $sourceDirectory );
 	$numberOfImagesFound = $overallWidth = $overallHeight = $positionX = $positionY = 0;
 	$imageFilenameRegex  = buildImageFilenameFormatRegex( $supportedFileExtensions );
+	$output = '';
 
 	foreach ( $files as $filename ) {
 		if ( '.' !== $filename && '..' !== $filename ) {
@@ -78,7 +79,8 @@
 				$imageWidth  = imagesx( $image );
 				$imageHeight = imagesy( $image );
 
-				$result[] = array( 'filePath' => $fullFilePath, 'width' => $imageWidth, 'height' => $imageWidth,
+				$result[] = array( 'filePath' => $fullFilePath, 'filename' => $filename,
+								   'width' => $imageWidth, 'height' => $imageWidth,
 								   'X'        => $positionX, 'Y' => $positionY, 'resource' => $image );
 
 				$positionX += $gutter + $imageWidth;
@@ -97,6 +99,9 @@
 		imagecolortransparent($resultImage, imagecolorallocate($resultImage, 0, 0, 0));
 		foreach ( $result as $icon ) {
 			imagecopy( $resultImage, $icon['resource'], $icon['X'], $icon['Y'], 0, 0, $icon['width'], $icon['height']);
+			$output .= '.a-icon-' . $icon['filename'] . '{background-position: ' . $icon['X'] . 'px '
+					   . $icon['Y'] . 'px;}
+					   ';
 		}
 
 		imagepng($resultImage, $destinationFile);//todo call jpg/png based on destination file
@@ -105,6 +110,25 @@
 		$overallHeight, 'px)';
 
 		var_dump( $result );
+
+		$output = '[class^="a-icon-"],
+		[class*=" a-icon-"] {
+			display:
+			inline - block;
+			width:
+			14px;
+		  height: 14px;
+		  .ie7-restore-right-whitespace();
+		  line-height: 14px;
+		  vertical-align: text - top;
+		  background-image: url( "' . $destinationFile . '" );
+		  background-position: 14px 14px;
+		  background-repeat: no-repeat;
+		  margin-top: 1px;
+		}
+		' . $output;
+
+		file_put_contents('style.less', $output);
 
 		exit( 0 );
 	}
