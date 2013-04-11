@@ -12,5 +12,7 @@
 			"homepage": "http://adamlynch.ie"
 		}
 	],
-	"require-dev":	"3.*"
+	"require-dev": {
+		"phpunit/phpunit": "3.*"
+	}
 }
