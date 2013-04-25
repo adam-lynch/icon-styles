@@ -9,20 +9,38 @@
 
 namespace IconStyles\test;
 
+require_once('..\IconStylesGenerator.php');
+require_once('..\Image.php');
+require_once('..\SpriteSheet.php');
+require_once( 'AbstractIconStylesTest.php' );
+
+use IconStyles\test\AbstractIconStylesTest;
+use IconStyles\IconStylesGenerator;
 use IconStyles\Image;
+use IconStyles\SpriteSheet;
 
-require_once( '../Image.php' );
 
 
-class ImageTest extends \PHPUnit_Framework_TestCase
+class ImageTest extends AbstractIconStylesTest
 {
 
 	/** @var string $testResourceRoot */
 	private static $testResourceRoot;
+	/** @var string $outputDirectory */
+	private static $outputDirectory;
 
 	public function setup() {
 
 		self::$testResourceRoot = __DIR__ . DIRECTORY_SEPARATOR . 'resources';
+		$outputDirectory = self::$testResourceRoot . DIRECTORY_SEPARATOR . 'temp';
+
+		//clean output dir (i.e. delete it) and re-create it
+		if(file_exists( $outputDirectory)){
+			exec( 'rm -r ' . $outputDirectory);
+		}
+		mkdir($outputDirectory);
+
+		self::$outputDirectory = $outputDirectory;
 	}
 
 	/**
@@ -30,11 +48,11 @@ class ImageTest extends \PHPUnit_Framework_TestCase
 	 */
 	public function constructor() {
 
-		$expectedFilename      = 'octocat';
 		$expectedFileExtension = $expectedType = 'png';
-		$expectedFilePath      = self::$testResourceRoot;
+		$expectedFilePath      = self::$testResourceRoot . DIRECTORY_SEPARATOR . 'fixtures'
+								 . DIRECTORY_SEPARATOR . 'octocat.' . $expectedFileExtension;
 
-		$this->fullImageConstructionTest( $expectedFilePath, $expectedFilename, $expectedFileExtension, $expectedType );
+		$this->fullImageConstructionTest( $expectedFilePath, $expectedFileExtension, $expectedType );
 	}
 
 	/**
@@ -43,12 +61,12 @@ class ImageTest extends \PHPUnit_Framework_TestCase
 	public function jpgUsesJpegImageCreationFunction() {
 
 		//run full test to be sure image is created correctly
-		$expectedFilename      = 'images';
 		$expectedFileExtension = 'jpg';
 		$expectedType          = 'jpeg';
-		$expectedFilePath      = self::$testResourceRoot;
+		$expectedFilePath      = self::$testResourceRoot . DIRECTORY_SEPARATOR . 'fixtures'
+								 . DIRECTORY_SEPARATOR . 'images.' . $expectedFileExtension;
 
-		$this->fullImageConstructionTest( $expectedFilePath, $expectedFilename, $expectedFileExtension, $expectedType );
+		$this->fullImageConstructionTest( $expectedFilePath, $expectedFileExtension, $expectedType );
 	}
 
 	/**
@@ -59,21 +77,18 @@ class ImageTest extends \PHPUnit_Framework_TestCase
 	 * @param $expectedFileExtension
 	 * @param $expectedType
 	 */
-	private function fullImageConstructionTest( $expectedFilePath, $expectedFilename, $expectedFileExtension, $expectedType ) {
+	protected function fullImageConstructionTest( $expectedFilePath, $expectedFileExtension, $expectedType ) {
 
-		$expectedFileFullPath = $expectedFilePath . DIRECTORY_SEPARATOR . $expectedFilename . '.' . $expectedFileExtension;
-
-		$actualImage = new Image( $expectedFilePath, $expectedFilename, $expectedFileExtension );
+		$actualImage = new Image( $expectedFilePath, $expectedFileExtension );
 
 		//check stored file path segments
 		$this->assertEquals( $expectedFilePath, $actualImage->getPath() );
-		$this->assertEquals( $expectedFilename, $actualImage->getFilename() );
-		$this->assertEquals( $expectedFileExtension, $actualImage->getExtension() );
+		$this->assertEquals( $expectedFileExtension, $actualImage->getExtension() );//double check to be sure
 		$this->assertEquals( $expectedType, $actualImage->getFormat() );
-		$this->assertEquals( $expectedFileFullPath, $actualImage->getFullPath() );
 
 		//generate local test image resource from the original image
-		$expectedImageResource = imagecreatefrompng( $expectedFilePath );
+		$imageCreationFunctionName = 'imagecreatefrom' . $expectedType;
+		$expectedImageResource = $imageCreationFunctionName( $expectedFilePath );
 
 		//test that the width and height matches orginal
 		$actualWidth  = $actualImage->getWidth();
@@ -81,35 +96,47 @@ class ImageTest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals( imagesx( $expectedImageResource ), $actualWidth, 'Width should be equal to that of real image' );
 		$this->assertEquals( imagesy( $expectedImageResource ), $actualHeight, 'Height should be equal to that of real image' );
 
-		$this->assertImagesAreEqual( $actualImage->getResource(), $expectedImageResource, $actualWidth, $actualHeight );
+		$this->assertImageResourcesAreEqual( $actualImage->getResource(), $expectedImageResource, $actualWidth, $actualHeight );
 	}
 
 	/**
-	 * asserts that both images are the same, pixel by pixel
-	 *
-	 * @param     $first  (image resource)
-	 * @param     $second (image resource)
-	 * @param int $height
-	 * @param int $width
+	 * @test
 	 */
-	private function assertImagesAreEqual( $first, $second, $width = 0, $height = 0 ) {
+	public function recursion(){
 
-		if ( empty( $width ) ) {
-			$width = imagesx( $first );
-		}
+		$directory = self::$testResourceRoot . DIRECTORY_SEPARATOR . 'fixtures';
+		$spriteSheet = new SpriteSheet();
+		//deliberately using different method to parse directory than actual implementation
+		$it = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $directory ) );
 
-		if ( empty( $height ) ) {
-			$height = imagesy( $first );
-		}
+		while ( $it->valid() ) {
 
-		for ( $x = 0; $x < $width; $x++ ) {
-			for ( $y = 0; $y < $height; $y++ ) {
-				$this->assertEquals(
-					imagecolorat( $first, $x, $y ),
-					imagecolorat( $second, $x, $y ),
-					"Pixel colour does not match between original and stored image at ({$x}, {$y})"
-				);
+			$fullFilePath = $it->key();
+
+			if ( !$it->isDot() && preg_match('%^(.+\\\\)?(.+?)\.(.+)$%', $fullFilePath, $filenameSegments) ) {
+
+				$extension = $filenameSegments[3];
+				$subPath = $it->getSubPath();
+				$path = $directory . ( DIRECTORY_SEPARATOR === $subPath ? '' : DIRECTORY_SEPARATOR ) . $subPath
+						. DIRECTORY_SEPARATOR . $filenameSegments[2] . '.' . $extension;
+
+				$spriteSheet->addImage( $path, $extension);
 			}
+
+			$it->next();
 		}
+
+		$destinationFilename = 'spritesheet.png';
+		$destinationFullFilePath = self::$outputDirectory . DIRECTORY_SEPARATOR . $destinationFilename;
+		$spriteSheet->generate( $destinationFullFilePath);
+
+		$this->assertFileExists( $destinationFullFilePath);
+
+		$outputImage = imagecreatefrompng( $destinationFullFilePath );
+		$this->assertNotEmpty($outputImage);
+		$this->assertEquals( 2037, imagesx($outputImage));
+		$this->assertEquals( 512, imagesy($outputImage));
+
+		$this->assertImageResourcesAreEqual(imagecreatefrompng(self::$testResourceRoot . DIRECTORY_SEPARATOR . $destinationFilename), $outputImage);
 	}
 }

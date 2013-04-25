@@ -9,7 +9,8 @@
 
 namespace IconStyles;
 
-require_once( 'File.php' );
+require_once('File.php');
+use IconStyles\File;
 
 class Image extends File
 {
@@ -22,13 +23,15 @@ class Image extends File
 	/** @var string $format */
 	private $format;
 
-	public function __construct( $path, $filename, $extension ) {
+	public function __construct( $fullFilePath, $extension ) {
 
+		if(gettype($fullFilePath) !== 'string'){
+			throw new \Exception( print_r($fullFilePath, 1) );
+		}
 
-		$this->setPath( $path );
-		$this->setFilename( $filename );
+		$this->setPath( $fullFilePath );
 		$this->setExtension( $extension );
-		$this->setFormat( $extension );
+		$this->setFormat( strtolower($extension) );
 
 		$imageResource = $this->createImageResource();
 		$this->setResource( $imageResource );
@@ -102,7 +105,7 @@ class Image extends File
 
 	private function createImageResource(){
 
-		$fullFilePath = $this->getFullPath();
+		$fullFilePath = $this->getPath();
 		$format = $this->getFormat();
 
 		/*
@@ -115,10 +118,8 @@ class Image extends File
 		//create the image
 		$imageResource = $createImageFunctionName( $fullFilePath );
 		if ( !$imageResource ) {
-			throw new \Exception( 'Error loading (' . $format . ') image: ' . $fullFilePath );
+			throw new \Exception( 'Error loading (' . strtoupper($format) . ') image: ' . $fullFilePath );
 		}
-
-		//imagecolortransparent( $image, imagecolorallocate( $image, 0, 255, 0 ) );
 
 		return $imageResource;
 	}
